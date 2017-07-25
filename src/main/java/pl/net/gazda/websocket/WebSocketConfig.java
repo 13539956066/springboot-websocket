@@ -1,14 +1,12 @@
 package pl.net.gazda.websocket;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableScheduling;
-import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
-import org.springframework.web.socket.WebSocketHandler;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
@@ -37,42 +35,55 @@ public class WebSocketConfig implements WebSocketConfigurer {
     }
 
     public static class WebSocketTransactionsHandler extends TextWebSocketHandler {
+        private static final Logger LOG = LoggerFactory.getLogger(WebSocketTransactionsHandler.class);
         private final WebSocketSessions sessions = new WebSocketSessions();
 
         @Override
         public void afterConnectionEstablished(WebSocketSession session) throws Exception {
+            LOG.info("Connection established. Session: {}", session.getId());
             sessions.add(session);
         }
 
         @Override
         public void handleTextMessage(WebSocketSession session, TextMessage message) throws IOException {
+            LOG.info("Text message received. Sending it back.");
             sessions.sendMessage(message);
         }
 
         @Override
         public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
+            LOG.info("Connection closed. Session: {}", session.getId());
             sessions.remove(session);
         }
 
         public void broadcastMessage(TextMessage message) throws IOException {
+            LOG.info("Sending message to all sessions. Message: {}", message.getPayload());
             sessions.sendMessage(message);
         }
     }
 
     public static class WebSocketSessions {
+        private static final Logger LOG = LoggerFactory.getLogger(WebSocketTransactionsHandler.class);
         Map<String, WebSocketSession> sessions = new ConcurrentHashMap<>();
 
-        public synchronize void add(WebSocketSession session) {
+        public synchronized void add(WebSocketSession session) {
             sessions.put(session.getId(), session);
         }
 
-        public synchronize void remove(WebSocketSession session) {
+        public synchronized void remove(WebSocketSession session) {
             sessions.remove(session.getId());
         }
 
-        public synchronize void sendMessage(TextMessage message) throws IOException {
-            for (String s : sessions.keySet()) {
-                sessions.get(s).sendMessage(message);
+        public synchronized void sendMessage(TextMessage message) throws IOException {
+            sessions.values().forEach(webSocketSession -> sendMessage(message, webSocketSession));
+        }
+
+        private void sendMessage(TextMessage message, WebSocketSession webSocketSession) {
+            try {
+                LOG.error("Sending message: {} to Session: {}", message.getPayload(), webSocketSession.getId());
+                webSocketSession.sendMessage(message);
+            } catch (IOException e) {
+                LOG.error("Unable to send message to Session: {}", webSocketSession.getId(), e);
             }
         }
     }
