@@ -62,22 +62,18 @@ public class WebSocketConfig implements WebSocketConfigurer {
     public static class WebSocketSessions {
         Map<String, WebSocketSession> sessions = new ConcurrentHashMap<>();
 
-        public void add(WebSocketSession session) {
+        public synchronize void add(WebSocketSession session) {
             sessions.put(session.getId(), session);
         }
 
-        public void remove(WebSocketSession session) {
+        public synchronize void remove(WebSocketSession session) {
             sessions.remove(session.getId());
         }
 
-        public void sendMessage(TextMessage message) throws IOException {
+        public synchronize void sendMessage(TextMessage message) throws IOException {
             for (String s : sessions.keySet()) {
                 sessions.get(s).sendMessage(message);
             }
         }
     }
-
-
-
-
 }
